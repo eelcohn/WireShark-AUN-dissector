@@ -6,32 +6,32 @@ aun_proto = Proto("aun","Acorn Universal Networking")
 function aun_proto.dissector(buffer,pinfo,tree)
 	pinfo.cols.protocol = "AUN"
 
-	local subtree = tree:add(aun_proto, buffer(),"Acorn Universal Networking")
-
 	local size = buffer:len()
 	local port = buffer(1,1):le_uint()
 	local ctrl = buffer(2,1):le_uint()
 
-	header_subtree = subtree:add(buffer(0,8),"Header")
-	header_subtree:add(buffer( 0,1), "Transaction type: "                   .. get_transaction_desc(buffer(0,1):uint()))
-	header_subtree:add(buffer( 1,1), "Port: "                               .. get_port_desc(port))
-	header_subtree:add(buffer( 2,1), "Control: "                            .. ctrl)
-	header_subtree:add(buffer( 3,1), "Retransmission flag: "                .. buffer(3,1):uint())
-	header_subtree:add(buffer( 4,4), "Sequence identifier: "                .. get_hex32_value(buffer(4,4):le_uint()))
+	local subtree = tree:add(aun_proto, buffer(), string.format("Acorn Universal Networking (%d bytes)", size))
+
+	header_subtree = subtree:add(buffer(0,8),"Header (8 bytes)")
+	header_subtree:add(buffer( 0,1), "Packet type: " .. get_transaction_desc(buffer(0,1):uint()))
+	header_subtree:add(buffer( 1,1), "Port: " .. get_port_desc(port))
+	header_subtree:add(buffer( 2,1), "Control: " .. ctrl)
+	header_subtree:add(buffer( 3,1), "Retransmission flag: " .. buffer(3,1):uint())
+	header_subtree:add(buffer( 4,4), "Sequence identifier: " .. get_hex32_value(buffer(4,4):le_uint()))
 
 	if size <= 8 then return end
 
-	data_subtree = subtree:add(buffer(8,size-8), "Data")
+	data_subtree = subtree:add(buffer(8,size-8), string.format("Data (%d bytes)", size-8))
 
 --	&90: FileServerReply
 	if port == 0x90 then
 		local cmd = buffer(8,1):le_uint()
 		local err = buffer(9,1):le_uint()
 
-		data_subtree:add(buffer( 8,1), "Client action: "                .. get_clientaction_desc(cmd))
+		data_subtree:add(buffer( 8,1), "Client action: " .. get_clientaction_desc(cmd))
 		if err == 0x00 then
 			data_subtree:add(buffer( 9,1), "Result: 0x00 (Success)")
-			data_subtree:add(buffer(10,size-10), "Data: "           .. buffer(10,size-10))
+			data_subtree:add(buffer(10,size-10), "Data: " .. buffer(10,size-10))
 			return
 		else
 			data_subtree:add(buffer( 9,size-9), "Result: " .. get_hex8_value(err) .. " (" .. buffer(10,size-10):string() .. ")")
@@ -43,43 +43,47 @@ function aun_proto.dissector(buffer,pinfo,tree)
 	if port == 0x99 then
 		local func = buffer(9,1):le_uint()
 
-		data_subtree:add(buffer( 8,1), "Reply port: "                   .. get_port_desc(buffer(8,1):uint()))
-		data_subtree:add(buffer( 9,1), "Function: "                     .. get_fileserver_function_desc(func))
+		data_subtree:add(buffer( 8,1), "Reply port: " .. get_port_desc(buffer(8,1):uint()))
+		data_subtree:add(buffer( 9,1), "Function: " .. get_fileserver_function_desc(func))
 --		&00: Command line
 		if func == 0x00 then
-			data_subtree:add(buffer(10,1), "URD handle: "           .. buffer(10,1):uint())
-			data_subtree:add(buffer(11,1), "CSD handle: "           .. buffer(11,1):uint())
-			data_subtree:add(buffer(12,1), "LIB handle: "           .. buffer(12,1):uint())
-			data_subtree:add(buffer(13,size-13),"Command: "         .. buffer(13,size-13):string())
+			data_subtree:add(buffer(10,1), "URD handle: " .. buffer(10,1):uint())
+			data_subtree:add(buffer(11,1), "CSD handle: " .. buffer(11,1):uint())
+			data_subtree:add(buffer(12,1), "LIB handle: " .. buffer(12,1):uint())
+			data_subtree:add(buffer(13,size-13),"Command: " .. buffer(13,size-13):string())
 			return
 		end
 --		&01: *Save / &1D: Create file of specified size
 		if func == 0x01 or func == 0x1D then
-			data_subtree:add(buffer(10,1), "URD handle: "           .. buffer(10,1):uint())
-			data_subtree:add(buffer(11,1), "CSD handle: "           .. buffer(11,1):uint())
-			data_subtree:add(buffer(12,1), "LIB handle: "           .. buffer(12,1):uint())
-			data_subtree:add(buffer(13, 4), "Load address: "        .. get_hex32_value(buffer(13,4):le_uint()))
-			data_subtree:add(buffer(17, 4), "Exec address: "        .. get_hex32_value(buffer(17,4):le_uint()))
-			data_subtree:add(buffer(21, 3), "Length: "              .. get_hex24_value(buffer(21,3):le_uint()))
-			data_subtree:add(buffer(24,size-24),"Filename: "        .. buffer(24,size-24):string())
+			local data_port = buffer(10,1):uint()
+
+			data_subtree:add(buffer(10,1), "Data transmission port: " .. get_port_desc(data_port))
+			data_subtree:add(buffer(11,1), "CSD handle: " .. buffer(11,1):uint())
+			data_subtree:add(buffer(12,1), "LIB handle: " .. buffer(12,1):uint())
+			data_subtree:add(buffer(13, 4), "Load address: " .. get_hex32_value(buffer(13,4):le_uint()))
+			data_subtree:add(buffer(17, 4), "Exec address: " .. get_hex32_value(buffer(17,4):le_uint()))
+			data_subtree:add(buffer(21, 3), "Length: " .. get_hex24_value(buffer(21,3):le_uint()))
+			data_subtree:add(buffer(24,size-24),"Filename: " .. buffer(24,size-24):string())
 			return
 		end
 --		&02: *Load / &05: Load as command
 		if func == 0x02 or func == 0x05 then
-			data_subtree:add(buffer(10,1), "URD handle: "          .. buffer(10,1):uint())
+			local data_port = buffer(10,1):uint()
+
+			data_subtree:add(buffer(10,1), "Data transmission port: " .. get_port_desc(data_port))
 			data_subtree:add(buffer(11,1), "CSD handle: " .. buffer(11,1):uint())
-			data_subtree:add(buffer(12,1), "LIB handle: "                      .. buffer(12,1):uint())
-			data_subtree:add(buffer(13,size-13),"Filename: "        .. buffer(13,size-13):string())
+			data_subtree:add(buffer(12,1), "LIB handle: " .. buffer(12,1):uint())
+			data_subtree:add(buffer(13,size-13),"Filename: " .. buffer(13,size-13):string())
 			return
 		end
 --		&03: *Ex
 		if func == 0x03 then 
 			local subfunc = buffer(13,1):le_uint()
 
-			data_subtree:add(buffer(10,1), "URD handle: "          .. buffer(10,1):uint())
+			data_subtree:add(buffer(10,1), "URD handle: " .. buffer(10,1):uint())
 			data_subtree:add(buffer(11,1), "CSD handle: " .. buffer(11,1):uint())
-			data_subtree:add(buffer(12,1), "LIB handle: "                      .. buffer(12,1):uint())
-			data_subtree:add(buffer(13,1), "Sub-function: "         .. get_fileserver_subfunction_desc(func, subfunc))
+			data_subtree:add(buffer(12,1), "LIB handle: " .. buffer(12,1):uint())
+			data_subtree:add(buffer(13,1), "Sub-function: " .. get_fileserver_subfunction_desc(func, subfunc))
 			data_subtree:add(buffer(14,1), "Entry pointer to directory: " .. buffer(14,1):uint())
 			data_subtree:add(buffer(15,1), "Number of objects to examine: " .. buffer(15,1):uint())
 			data_subtree:add(buffer(16,size-16), "Directory name: " .. buffer(16,size-16):string())
@@ -87,17 +91,17 @@ function aun_proto.dissector(buffer,pinfo,tree)
 		end
 --		&04: Catalogue header
 		if func == 0x04 then
-			data_subtree:add(buffer(10,1), "URD handle: "          .. buffer(10,1):uint())
+			data_subtree:add(buffer(10,1), "URD handle: " .. buffer(10,1):uint())
 			data_subtree:add(buffer(11,1), "CSD handle: " .. buffer(11,1):uint())
-			data_subtree:add(buffer(12,1), "LIB handle: "                      .. buffer(12,1):uint())
+			data_subtree:add(buffer(12,1), "LIB handle: " .. buffer(12,1):uint())
 			data_subtree:add(buffer(13,size-13),"Directory name: " .. buffer(13,size-13):string())
 			return
 		end
 --		&06: Open file
 		if func == 0x06 then
-			data_subtree:add(buffer(10,1), "URD handle: "          .. buffer(10,1):uint())
+			data_subtree:add(buffer(10,1), "URD handle: " .. buffer(10,1):uint())
 			data_subtree:add(buffer(11,1), "CSD handle: " .. buffer(11,1):uint())
-			data_subtree:add(buffer(12,1), "LIB handle: "                      .. buffer(12,1):uint())
+			data_subtree:add(buffer(12,1), "LIB handle: " .. buffer(12,1):uint())
 			data_subtree:add(buffer(13,1), "Create a new file: " .. buffer(13,1):uint())
 			data_subtree:add(buffer(14,1), "Open object for update: " .. buffer(14,1):uint())
 			data_subtree:add(buffer(15,size-15),"Filename: " .. buffer(15,size-15):string())
@@ -125,7 +129,7 @@ function aun_proto.dissector(buffer,pinfo,tree)
 
 			data_subtree:add(buffer(10,1), "Data acknowledge port: " .. get_port_desc(ackport))
 			data_subtree:add(buffer(11,1), "CSD handle: " .. buffer(11,1):uint())
-			data_subtree:add(buffer(12,1), "LIB handle: "                      .. buffer(12,1):uint())
+			data_subtree:add(buffer(12,1), "LIB handle: " .. buffer(12,1):uint())
 			data_subtree:add(buffer(13,1), "File handle: " .. buffer(13,1):uint())
 			data_subtree:add(buffer(14,1), "Use specified offset: " .. buffer(14,1):uint())
 			data_subtree:add(buffer(15,3), "Number of bytes: " .. get_hex24_value(buffer(15,3):le_uint()))
@@ -136,9 +140,9 @@ function aun_proto.dissector(buffer,pinfo,tree)
 		if func == 0x0C then
 			local ptrtype = buffer(11,1):uint()
 
-			data_subtree:add(buffer(10,1), "URD handle: "          .. buffer(10,1):uint())
+			data_subtree:add(buffer(10,1), "URD handle: " .. buffer(10,1):uint())
 			data_subtree:add(buffer(11,1), "CSD handle: " .. buffer(11,1):uint())
-			data_subtree:add(buffer(12,1), "LIB handle: "                      .. buffer(12,1):uint())
+			data_subtree:add(buffer(12,1), "LIB handle: " .. buffer(12,1):uint())
 			data_subtree:add(buffer(13,1), "File handle: " .. buffer(10,1):uint())
 			if ptrtype == 0x00 then data_subtree:add(buffer(14,1), "Type: Seqeuential file pointer")
 			elseif ptrtype == 0x01 then data_subtree:add(buffer(14,1), "Type: File exent")
@@ -150,9 +154,9 @@ function aun_proto.dissector(buffer,pinfo,tree)
 		if func == 0x0D then
 			local ptrtype = buffer(11,1):uint()
 
-			data_subtree:add(buffer(10,1), "URD handle: "          .. buffer(10,1):uint())
+			data_subtree:add(buffer(10,1), "URD handle: " .. buffer(10,1):uint())
 			data_subtree:add(buffer(11,1), "CSD handle: " .. buffer(11,1):uint())
-			data_subtree:add(buffer(12,1), "LIB handle: "                      .. buffer(12,1):uint())
+			data_subtree:add(buffer(12,1), "LIB handle: " .. buffer(12,1):uint())
 			data_subtree:add(buffer(13,1), "File handle: " .. buffer(10,1):uint())
 			if ptrtype == 0x00 then data_subtree:add(buffer(14,1), "Type: Seqeuential file pointer")
 			elseif ptrtype == 0x01 then data_subtree:add(buffer(14,1), "Type: File exent")
@@ -162,34 +166,34 @@ function aun_proto.dissector(buffer,pinfo,tree)
 		end
 --		&0E: Read disc information
 		if func == 0x0E then
-			data_subtree:add(buffer(10,1), "URD handle: "          .. buffer(10,1):uint())
+			data_subtree:add(buffer(10,1), "URD handle: " .. buffer(10,1):uint())
 			data_subtree:add(buffer(11,1), "CSD handle: " .. buffer(11,1):uint())
-			data_subtree:add(buffer(12,1), "LIB handle: "                      .. buffer(12,1):uint())
+			data_subtree:add(buffer(12,1), "LIB handle: " .. buffer(12,1):uint())
 			data_subtree:add(buffer(13,1), "First drive number: " .. buffer(10,1):uint())
 			data_subtree:add(buffer(14,1), "Number of drives to interrogate: " .. buffer(11,1):uint())
 			return
 		end
 --		&0F: Read current users
 		if func == 0x0F then
-			data_subtree:add(buffer(10,1), "URD handle: "          .. buffer(10,1):uint())
+			data_subtree:add(buffer(10,1), "URD handle: " .. buffer(10,1):uint())
 			data_subtree:add(buffer(11,1), "CSD handle: " .. buffer(11,1):uint())
-			data_subtree:add(buffer(12,1), "LIB handle: "                      .. buffer(12,1):uint())
+			data_subtree:add(buffer(12,1), "LIB handle: " .. buffer(12,1):uint())
 			data_subtree:add(buffer(13,1), "Start entry: " .. buffer(10,1):uint())
 			data_subtree:add(buffer(14,1), "Number of entries to get: " .. buffer(11,1):uint())
 			return
 		end
 --		&10: Read date and time
 		if func == 0x11 then
-			data_subtree:add(buffer(10,1), "URD handle: "          .. buffer(10,1):uint())
+			data_subtree:add(buffer(10,1), "URD handle: " .. buffer(10,1):uint())
 			data_subtree:add(buffer(11,1), "CSD handle: " .. buffer(11,1):uint())
-			data_subtree:add(buffer(12,1), "LIB handle: "                      .. buffer(12,1):uint())
+			data_subtree:add(buffer(12,1), "LIB handle: " .. buffer(12,1):uint())
 			return
 		end
 --		&11: Read EOF status
 		if func == 0x11 then
-			data_subtree:add(buffer(10,1), "URD handle: "          .. buffer(10,1):uint())
+			data_subtree:add(buffer(10,1), "URD handle: " .. buffer(10,1):uint())
 			data_subtree:add(buffer(11,1), "CSD handle: " .. buffer(11,1):uint())
-			data_subtree:add(buffer(12,1), "LIB handle: "                      .. buffer(12,1):uint())
+			data_subtree:add(buffer(12,1), "LIB handle: " .. buffer(12,1):uint())
 			data_subtree:add(buffer(13,1), "File handle: " .. buffer(10,1):uint())
 			return
 		end
@@ -197,10 +201,10 @@ function aun_proto.dissector(buffer,pinfo,tree)
 		if func == 0x12 then
 			local subfunc = buffer(13,1):le_uint()
 
-			data_subtree:add(buffer(10,1), "URD handle: "          .. buffer(10,1):uint())
+			data_subtree:add(buffer(10,1), "URD handle: " .. buffer(10,1):uint())
 			data_subtree:add(buffer(11,1), "CSD handle: " .. buffer(11,1):uint())
-			data_subtree:add(buffer(12,1), "LIB handle: "                      .. buffer(12,1):uint())
-			data_subtree:add(buffer(13,1), "Sub-function: "         .. get_fileserver_subfunction_desc(func, subfunc))
+			data_subtree:add(buffer(12,1), "LIB handle: " .. buffer(12,1):uint())
+			data_subtree:add(buffer(13,1), "Sub-function: " .. get_fileserver_subfunction_desc(func, subfunc))
 			data_subtree:add(buffer(14,size-14), "Directory name: " .. buffer(14,size-14):string())
 			return
 		end
@@ -208,79 +212,75 @@ function aun_proto.dissector(buffer,pinfo,tree)
 		if func == 0x13 then
 			local subfunc = buffer(13,1):le_uint()
 
-			data_subtree:add(buffer(10,1), "URD handle: "          .. buffer(10,1):uint())
+			data_subtree:add(buffer(10,1), "URD handle: " .. buffer(10,1):uint())
 			data_subtree:add(buffer(11,1), "CSD handle: " .. buffer(11,1):uint())
-			data_subtree:add(buffer(12,1), "LIB handle: "                      .. buffer(12,1):uint())
-			data_subtree:add(buffer(13,1), "Sub-function: "         .. get_fileserver_subfunction_desc(func, subfunc))
+			data_subtree:add(buffer(12,1), "LIB handle: " .. buffer(12,1):uint())
+			data_subtree:add(buffer(13,1), "Sub-function: " .. get_fileserver_subfunction_desc(func, subfunc))
 			data_subtree:add(buffer(14,size-14), "Data: " .. buffer(14,size-14))
 			return
 		end
 --		&14: Delete object
 		if func == 0x14 then
-			data_subtree:add(buffer(10,1), "URD handle: "          .. buffer(10,1):uint())
+			data_subtree:add(buffer(10,1), "URD handle: " .. buffer(10,1):uint())
 			data_subtree:add(buffer(11,1), "CSD handle: " .. buffer(11,1):uint())
-			data_subtree:add(buffer(12,1), "LIB handle: "                      .. buffer(12,1):uint())
-			data_subtree:add(buffer(13,size-13),"Object name: "             .. buffer(13,size-13):string())
+			data_subtree:add(buffer(12,1), "LIB handle: " .. buffer(12,1):uint())
+			data_subtree:add(buffer(13,size-13),"Object name: " .. buffer(13,size-13):string())
 			return
 		end
 --		&15: Read user environment
 		if func == 0x15 then
-			data_subtree:add(buffer(10,1), "URD handle: "          .. buffer(10,1):uint())
+			data_subtree:add(buffer(10,1), "URD handle: " .. buffer(10,1):uint())
 			data_subtree:add(buffer(11,1), "CSD handle: " .. buffer(11,1):uint())
-			data_subtree:add(buffer(12,1), "LIB handle: "                      .. buffer(12,1):uint())
+			data_subtree:add(buffer(12,1), "LIB handle: " .. buffer(12,1):uint())
 			return
 		end
 --		&16: Set user boot option
 		if func == 0x16 then
 			local bootoption = buffer(13,1):uint()
 
-			data_subtree:add(buffer(10,1), "URD handle: "          .. buffer(10,1):uint())
+			data_subtree:add(buffer(10,1), "URD handle: " .. buffer(10,1):uint())
 			data_subtree:add(buffer(11,1), "CSD handle: " .. buffer(11,1):uint())
-			data_subtree:add(buffer(12,1), "LIB handle: "                      .. buffer(12,1):uint())
-			if bootoption == 0x00 then data_subtree:add(buffer(14,1), "Boot option: Off")
-			elseif bootoption == 0x01 then data_subtree:add(buffer(14,1), "Boot option: Load")
-			elseif bootoption == 0x02 then data_subtree:add(buffer(14,1), "Boot option: Run")
-			elseif bootoption == 0x03 then data_subtree:add(buffer(14,1), "Boot option: Exec")
-			else data_subtree:add(buffer(14,1), "Boot option: Unknown") end
+			data_subtree:add(buffer(12,1), "LIB handle: " .. buffer(12,1):uint())
+			data_subtree:add(buffer(13,1), "Boot option: " .. get_boot_option(bootoption))
 			return
 		end
 --		&17: Log off
 		if func == 0x17 then
-			data_subtree:add(buffer(10,1), "URD handle: "          .. buffer(10,1):uint())
+			data_subtree:add(buffer(10,1), "URD handle: " .. buffer(10,1):uint())
 			data_subtree:add(buffer(11,1), "CSD handle: " .. buffer(11,1):uint())
-			data_subtree:add(buffer(12,1), "LIB handle: "                      .. buffer(12,1):uint())
+			data_subtree:add(buffer(12,1), "LIB handle: " .. buffer(12,1):uint())
 			return
 		end
 --		&18: Read user information
 		if func == 0x18 then
-			data_subtree:add(buffer(10,1), "URD handle: "          .. buffer(10,1):uint())
+			data_subtree:add(buffer(10,1), "URD handle: " .. buffer(10,1):uint())
 			data_subtree:add(buffer(11,1), "CSD handle: " .. buffer(11,1):uint())
-			data_subtree:add(buffer(12,1), "LIB handle: "                      .. buffer(12,1):uint())
-			data_subtree:add(buffer(13,size-13),"Username: "                .. buffer(13,size-13):string())
+			data_subtree:add(buffer(12,1), "LIB handle: " .. buffer(12,1):uint())
+			data_subtree:add(buffer(13,size-13),"Username: " .. buffer(13,size-13):string())
 			return
 		end
 --		&19: Read fileserver version number
 		if func == 0x19 then
-			data_subtree:add(buffer(10,1), "URD handle: "          .. buffer(10,1):uint())
+			data_subtree:add(buffer(10,1), "URD handle: " .. buffer(10,1):uint())
 			data_subtree:add(buffer(11,1), "CSD handle: " .. buffer(11,1):uint())
-			data_subtree:add(buffer(12,1), "LIB handle: "                      .. buffer(12,1):uint())
+			data_subtree:add(buffer(12,1), "LIB handle: " .. buffer(12,1):uint())
 			return
 		end
 --		&1A: Read fileserver free space
 		if func == 0x1A then
-			data_subtree:add(buffer(10,1), "URD handle: "          .. buffer(10,1):uint())
+			data_subtree:add(buffer(10,1), "URD handle: " .. buffer(10,1):uint())
 			data_subtree:add(buffer(11,1), "CSD handle: " .. buffer(11,1):uint())
-			data_subtree:add(buffer(12,1), "LIB handle: "                      .. buffer(12,1):uint())
-			data_subtree:add(buffer(13,size-13),"Disc name: "               .. buffer(13,size-13):string())
+			data_subtree:add(buffer(12,1), "LIB handle: " .. buffer(12,1):uint())
+			data_subtree:add(buffer(13,size-13),"Disc name: " .. buffer(13,size-13):string())
 			return
 		end
 --		&1B: Create directory
 		if func == 0x1B then
-			data_subtree:add(buffer(10,1), "URD handle: "          .. buffer(10,1):uint())
+			data_subtree:add(buffer(10,1), "URD handle: " .. buffer(10,1):uint())
 			data_subtree:add(buffer(11,1), "CSD handle: " .. buffer(11,1):uint())
-			data_subtree:add(buffer(12,1), "LIB handle: "                      .. buffer(12,1):uint())
+			data_subtree:add(buffer(12,1), "LIB handle: " .. buffer(12,1):uint())
 			data_subtree:add(buffer(13,1), "Number of blocks to allocate: " .. buffer(13,1):uint())
-			data_subtree:add(buffer(14,size-14),"Disc name: "               .. buffer(14,size-14):string())
+			data_subtree:add(buffer(14,size-14),"Disc name: " .. buffer(14,size-14):string())
 			return
 		end
 --		&1C: Set real time clock
@@ -288,35 +288,35 @@ function aun_proto.dissector(buffer,pinfo,tree)
 			local date = buffer(13,2):uint()
 			local time = buffer(15,3):uint()
 
-			data_subtree:add(buffer(10,1), "URD handle: "          .. buffer(10,1):uint())
+			data_subtree:add(buffer(10,1), "URD handle: " .. buffer(10,1):uint())
 			data_subtree:add(buffer(11,1), "CSD handle: " .. buffer(11,1):uint())
-			data_subtree:add(buffer(12,1), "LIB handle: "                      .. buffer(12,1):uint())
-			data_subtree:add(buffer(13,2), "Date: "                         .. get_date(date))
-			data_subtree:add(buffer(15,3), "Time: "                         .. get_time(time))
+			data_subtree:add(buffer(12,1), "LIB handle: " .. buffer(12,1):uint())
+			data_subtree:add(buffer(13,2), "Date: " .. get_date(date))
+			data_subtree:add(buffer(15,3), "Time: " .. get_time(time))
 			return
 		end
 --		&1E: Read user free space
 		if func == 0x1E then
-			data_subtree:add(buffer(10,1), "URD handle: "          .. buffer(10,1):uint())
+			data_subtree:add(buffer(10,1), "URD handle: " .. buffer(10,1):uint())
 			data_subtree:add(buffer(11,1), "CSD handle: " .. buffer(11,1):uint())
-			data_subtree:add(buffer(12,1), "LIB handle: "                      .. buffer(12,1):uint())
-			data_subtree:add(buffer(13,size-13),"Username: "                .. buffer(13,size-13):string())
+			data_subtree:add(buffer(12,1), "LIB handle: " .. buffer(12,1):uint())
+			data_subtree:add(buffer(13,size-13),"Username: " .. buffer(13,size-13):string())
 			return
 		end
 --		&1F: Set user free space
 		if func == 0x1F then
-			data_subtree:add(buffer(10,1), "URD handle: "          .. buffer(10,1):uint())
+			data_subtree:add(buffer(10,1), "URD handle: " .. buffer(10,1):uint())
 			data_subtree:add(buffer(11,1), "CSD handle: " .. buffer(11,1):uint())
-			data_subtree:add(buffer(12,1), "LIB handle: "                      .. buffer(12,1):uint())
-			data_subtree:add(buffer(13, 4), "Load address: "        .. get_hex32_value(buffer(13,4):le_uint()))
-			data_subtree:add(buffer(17,size-17),"Username: "                .. buffer(17,size-17):string())
+			data_subtree:add(buffer(12,1), "LIB handle: " .. buffer(12,1):uint())
+			data_subtree:add(buffer(13, 4), "Load address: " .. get_hex32_value(buffer(13,4):le_uint()))
+			data_subtree:add(buffer(17,size-17),"Username: " .. buffer(17,size-17):string())
 			return
 		end
 --		&40: Read account information
 		if func == 0x40 then
 			local subfunc = buffer(13,1):le_uint()
 
-			data_subtree:add(buffer(13,1), "Sub-function: "         .. get_fileserver_subfunction_desc(func, subfunc))
+			data_subtree:add(buffer(13,1), "Sub-function: " .. get_fileserver_subfunction_desc(func, subfunc))
 			data_subtree:add(buffer(14,2), "First account to try: " .. buffer(14,2):uint())
 			data_subtree:add(buffer(16,2), "Maximum number of accounts: " .. buffer(16,2):uint())
 			data_subtree:add(buffer(17,1), "Disc number: " .. buffer(17,1):uint())
@@ -326,12 +326,12 @@ function aun_proto.dissector(buffer,pinfo,tree)
 		if func == 0x41 then
 			local subfunc = buffer(13,1):le_uint()
 
-			data_subtree:add(buffer(13,1), "Sub-function: "         .. get_fileserver_subfunction_desc(func, subfunc))
-			data_subtree:add(buffer(14,size-14), "Data: "           .. buffer(14,size-14))
+			data_subtree:add(buffer(13,1), "Sub-function: " .. get_fileserver_subfunction_desc(func, subfunc))
+			data_subtree:add(buffer(14,size-14), "Data: " .. buffer(14,size-14))
 			return
 		end
 --		&xx: Unknown file server function
-		data_subtree:add(buffer(10,size-10), "Data: "           .. buffer(10,size-10))
+		data_subtree:add(buffer(10,size-10), "Data: " .. buffer(10,size-10))
 		return
 	end
 
@@ -367,7 +367,7 @@ function aun_proto.dissector(buffer,pinfo,tree)
 			return
 		end
 		data_subtree:add(buffer( 2,1), "Message type: Unknown")
-		data_subtree:add(buffer(8,size-8), "Data: " .. buffer(8,size-8))
+		data_subtree:add(buffer( 8,size-8), "Data: " .. buffer(8,size-8))
 		return
 	end
 
@@ -451,7 +451,13 @@ function get_port_desc(port)
 	if port == 0x00 then description = "Immediate" end
 	if port == 0x90 then description = "FileServerReply" end
 	if port == 0x91 then description = "FileServerData" end
-	if port == 0x93 then description = "Remote" end
+	if port == 0x92 then description = "FileServerData" end
+	if port == 0x93 then description = "FileServerData / Remote" end
+	if port == 0x94 then description = "FileServerData" end
+	if port == 0x95 then description = "FileServerData" end
+	if port == 0x96 then description = "FileServerData" end
+	if port == 0x97 then description = "FileServerData" end
+	if port == 0x98 then description = "FileServerData" end
 	if port == 0x99 then description = "FileServerCommand" end
 	if port == 0x9C then description = "Bridge" end
 	if port == 0x9D then description = "ResourceLocator" end
@@ -576,6 +582,17 @@ function get_printerstatus_desc(type)
 	if type == 0x00 then description = "Online" end
 	if type == 0x01 then description = "Busy with station" end
 	if type == 0x02 then description = "Jammed/Offline" end
+
+	return description
+end
+
+function get_boot_option(bootoption)
+	local description = "Unknown"
+
+	if bootoption == 0x00 then description = "Off" end
+	if bootoption == 0x01 then description = "Load" end
+	if bootoption == 0x02 then description = "Run" end
+	if bootoption == 0x03 then description = "Exec" end
 
 	return description
 end
