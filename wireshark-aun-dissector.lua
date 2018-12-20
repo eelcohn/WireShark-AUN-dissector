@@ -49,6 +49,19 @@ aun_ports = {
 	[0xDC] = "DataDistributionControl"
 }
 
+aun_immediate_functions = {
+	[0x00] = "Execute command (OSCLI)"
+	[0x01] = "Peek"
+	[0x02] = "Poke"
+	[0x03] = "Start program (JSR)"
+	[0x04] = "UserProc"
+	[0x05] = "OSProc"
+	[0x06] = "Halt"
+	[0x07] = "Continue"
+	[0x08] = "MachineType"
+	[0x09] = "GetRegisters"
+}
+
 aun_fs_functions = {
 	[0x00] = "Execute command (OSCLI)",
 	[0x01] = "Start client-to-server file transfer (*SAVE)",
@@ -211,6 +224,13 @@ function aun_proto.dissector(buffer,pinfo,tree)
 	if size == 8 then return end
 
 	data_subtree = subtree:add(buffer(8,size-8), string.format("Data (%d bytes)", size-8))
+
+--	&00: Immediate
+	if port == 0x00 then
+		data_subtree:add(buffer( 8,1), "Function: " .. get_description(aun_immediate_functions, ctrl))
+		data_subtree:add(buffer( 9,size-9), "Data: " .. buffer(9,size-9))
+		return
+	end
 
 --	&90: FileServerReply
 	if port == 0x90 then
