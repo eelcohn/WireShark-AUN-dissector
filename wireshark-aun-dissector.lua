@@ -425,7 +425,7 @@ function get_transaction_desc(type)
 	if type == 0x05 then description = "Immediate" end
 	if type == 0x06 then description = "Immediate Reply" end
 
-	return description
+	return string.format(description .. " (0x%02x)", type)
 end
 
 function get_clientaction_desc(type)
@@ -442,7 +442,7 @@ function get_clientaction_desc(type)
 	if type == 0x08 then description = "*Unrecognized command" end
 	if type == 0x09 then description = "*Lib" end
 
-	return description
+	return string.format(description .. " (0x%02x)", type)
 end
 
 function get_port_desc(port)
@@ -483,7 +483,7 @@ function get_port_desc(port)
 	if port == 0xDB then description = "DigitalServicesSquirrel2" end
 	if port == 0xDC then description = "DataDistributionControl" end
 
-	return description
+	return string.format(description .. " (0x%02x)", port)
 end
 
 function get_fileserver_function_desc(type)
@@ -525,7 +525,7 @@ function get_fileserver_function_desc(type)
 	if type == 0x40 then description = "Read account information" end
 	if type == 0x41 then description = "Read/write system information" end
 
-	return description
+	return string.format(description .. " (0x%02x)", type)
 end
 
 function get_fileserver_subfunction_desc(func, subfunc)
@@ -573,7 +573,7 @@ function get_fileserver_subfunction_desc(func, subfunc)
 		if subfunc == 0x0C then description = "Set the privilege required to change the file servers date and time" end
 	end
 
-	return description
+	return string.format(description .. " (0x%02x)", subfunc)
 end
 
 function get_printerstatus_desc(type)
@@ -583,7 +583,7 @@ function get_printerstatus_desc(type)
 	if type == 0x01 then description = "Busy with station" end
 	if type == 0x02 then description = "Jammed/Offline" end
 
-	return description
+	return string.format(description .. " (0x%02x)", type)
 end
 
 function get_boot_option(bootoption)
@@ -594,7 +594,7 @@ function get_boot_option(bootoption)
 	if bootoption == 0x02 then description = "Run" end
 	if bootoption == 0x03 then description = "Exec" end
 
-	return description
+	return string.format(description .. " (0x%02x)", bootoption)
 end
 
 function get_hex8_value(value)
