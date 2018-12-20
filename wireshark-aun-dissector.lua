@@ -96,13 +96,13 @@ aun_fs03_functions = {
 
 aun_fs0c_functions = {
 	[0x00] = "Seqeuential file pointer",
-	[0x01] = "Type: File exent",
+	[0x01] = "File exent",
 	[0x02] = "File size"
 }
 
 aun_fs0d_functions = {
 	[0x00] = "Seqeuential file pointer",
-	[0x01] = "Type: File exent"
+	[0x01] = "File exent"
 }
 
 aun_fs12_functions = {
