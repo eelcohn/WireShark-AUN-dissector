@@ -54,12 +54,12 @@ aun_immediate_functions = {
 	[0x00] = "Execute command (OSCLI)",
 	[0x01] = "Peek",
 	[0x02] = "Poke",
-	[0x03] = "Start program (JSR)",
-	[0x04] = "UserProc",
-	[0x05] = "OSProc",
+	[0x03] = "JSR",
+	[0x04] = "UserProcedureCall",
+	[0x05] = "OSProcedureCall",
 	[0x06] = "Halt",
 	[0x07] = "Continue",
-	[0x08] = "MachineType",
+	[0x08] = "MachinePeek",
 	[0x09] = "GetRegisters"
 }
 
@@ -199,7 +199,7 @@ aun_bridgetypes = {
 	[0x03] = "IsNet"
 }
 
-aun = Proto("aun","Acorn Universal Networking")
+local aun = Proto("aun","Acorn Universal Networking")
 
 aun.fields.packettype    = ProtoField.uint8 ("aun.packettype",    "Packet type",                base.DEC, aun_types)
 aun.fields.bridgetype    = ProtoField.uint8 ("aun.bridgetype",    "Message type",               base.DEC, aun_bridgetypes)
@@ -228,6 +228,7 @@ aun.fields.lib           = ProtoField.uint8 ("aun.lib",           "LIB handle", 
 aun.fields.filehandle    = ProtoField.uint8 ("aun.filehandle",    "File handle",                base.HEX)
 aun.fields.loadaddr      = ProtoField.uint32("aun.loadaddr",      "Load address",               base.HEX)
 aun.fields.execaddr      = ProtoField.uint32("aun.execaddr",      "Exec address",               base.HEX)
+aun.fields.attributes    = ProtoField.uint32("aun.attributes",    "Attributes",                 base.HEX)
 aun.fields.length        = ProtoField.uint24("aun.length",        "Length",                     base.HEX)
 aun.fields.offset        = ProtoField.uint24("aun.offset",        "Offset",                     base.HEX)
 aun.fields.useoffset     = ProtoField.bool  ("aun.useoffset",     "Use specified offset",       base.NONE)
@@ -241,6 +242,12 @@ aun.fields.objectname    = ProtoField.string("aun.objectname",    "Object name",
 aun.fields.username      = ProtoField.string("aun.username",      "User name",                  base.NONE)
 aun.fields.discname      = ProtoField.string("aun.discname",      "Disc name",                  base.NONE)
 aun.fields.discnumber    = ProtoField.string("aun.discnumber",    "Disc number",                base.NONE)
+aun.fields.date          = ProtoField.string("aun.date",          "Date",                       base.NONE)
+aun.fields.time          = ProtoField.string("aun.time",          "Time",                       base.NONE)
+aun.fields.createdate    = ProtoField.string("aun.createdate",    "Creation date",              base.NONE)
+aun.fields.createtime    = ProtoField.string("aun.createtime",    "Creation time",              base.NONE)
+aun.fields.modifydate    = ProtoField.string("aun.modifydate",    "Modification date",          base.NONE)
+aun.fields.modigytime    = ProtoField.string("aun.modifytime",    "Modification time",          base.NONE)
 aun.fields.startat       = ProtoField.uint8 ("aun.startat",       "Start at number",            base.HEX)
 aun.fields.items         = ProtoField.uint8 ("aun.items",         "Number of items to get",     base.HEX)
 aun.fields.firstaccount  = ProtoField.uint16("aun.firstaccount",  "First account to try",       base.HEX)
@@ -254,7 +261,14 @@ aun.fields.station       = ProtoField.uint8 ("aun.station",       "Station",    
 aun.fields.network       = ProtoField.uint8 ("aun.network",       "Network",                    base.HEX)
 aun.fields.data          = ProtoField.bytes ("aun.data",          "Data",                       base.SPACE)
 
-
+--aun.fields.attrib_r_owner = ProtoField.bool  ("aun.r_owner",       "Read access by owner",       base.HEX, {"1", "0"}, 0x01)
+--aun.fields.attrib_w_owner = ProtoField.bool  ("aun.w_owner",       "Write access by owner",      base.HEX, {"1", "0"}, 0x02)
+--aun.fields.attrib_x_owner = ProtoField.bool  ("aun.x_owner",       "Execute by owner",           base.HEX, {"1", "0"}, 0x04)
+--aun.fields.attrib_l_owner = ProtoField.bool  ("aun.l_owner",       "Locked for owner",           base.HEX, {"1", "0"}, 0x08)
+--aun.fields.attrib_r_other = ProtoField.bool  ("aun.r_other",       "Read access by others",      base.HEX, {"1", "0"}, 0x10)
+--aun.fields.attrib_w_other = ProtoField.bool  ("aun.w_other",       "Write access by others",     base.HEX, {"1", "0"}, 0x20)
+--aun.fields.attrib_x_other = ProtoField.bool  ("aun.x_other",       "Execute by others",          base.HEX, {"1", "0"}, 0x40)
+--aun.fields.attrib_l_other = ProtoField.bool  ("aun.l_other",       "Locked for others",          base.HEX, {"1", "0"}, 0x80)
 
 
 function aun.dissector(buffer, pinfo, tree)
@@ -280,13 +294,18 @@ function aun.dissector(buffer, pinfo, tree)
 	header_subtree:add_le(aun.fields.retrans,    buffer(3,1))
 	header_subtree:add_le(aun.fields.sequence,   buffer(4,4))
 
-	if size == 8 then return end
+	if size == 8 then
+		pinfo.cols.info:set(aun_ports[port] .. ": " ..aun_types[packettype])
+		return
+	end
 
 --	local data_subtree = subtree:add(buffer(8,size-8), string.format("Data (%d bytes)", size-8))
 	local data_subtree = subtree
 
 --	Port &00: Immediate
 	if port == 0x00 then
+		pinfo.cols.info:set(aun_ports[port] .. ": " .. aun_im_functions[ctrl])
+
 		data_subtree:add_le(aun.fields.im_function, buffer(2,1))
 		data_subtree:add_le(aun.fields.data, buffer(8,size-8))
 		return
@@ -294,20 +313,28 @@ function aun.dissector(buffer, pinfo, tree)
 
 --	Port &90: FileServerReply
 	if port == 0x90 then
+		local err = buffer(9,1):le_uint()
+
 		data_subtree:add_le(aun.fields.clientaction, buffer(8,1))
 		if err == 0x00 then
-			data_subtree:add_le(aun.fields.result, buffer(9,size-9), 0, nil, "(Success)")
+			pinfo.cols.info:set(aun_ports[port] .. ": Success")
+
+			data_subtree:add_le(aun.fields.result, buffer(9,1), 0, nil, "(Success)")
 			data_subtree:add_le(aun.fields.data, buffer(10,size-10))
 			return
 		else
-			data_subtree:add_le(aun.fields.result, buffer(9,size-9), 0, nil, "(" .. buffer(10,size-10):string() .. ")")
+			pinfo.cols.info:set(aun_ports[port] .. ": " .. buffer(10,size-10):string())
+
+			data_subtree:add_le(aun.fields.result, buffer(9,1), 0, nil, "(" .. buffer(10,size-10):string() .. ")")
 			return
 		end
 	end
 
 --	Port &99: FileServerCommand
 	if port == 0x99 then
-		local fs_func= buffer(9,1):le_uint()
+		local fs_func = buffer(9,1):le_uint()
+
+		pinfo.cols.info:set(aun_ports[port] .. ": " .. aun_fs_functions[fs_func])
 
 		data_subtree:add_le(aun.fields.replyport,            buffer(8,1))
 		data_subtree:add_le(aun.fields.fs_function,          buffer(9,1))
@@ -457,13 +484,51 @@ function aun.dissector(buffer, pinfo, tree)
 			data_subtree:add_le(aun.fields.dirname,      buffer(14,size-14))
 			return
 		end
---		&13: Set object attributes
+--		&13: Set object attributes (OSFILE)
 		if fs_func== 0x13 then
+			local fs_subfunc = buffer(13,1)
+
 			data_subtree:add_le(aun.fields.urd,          buffer(10,1))
 			data_subtree:add_le(aun.fields.csd,          buffer(11,1))
 			data_subtree:add_le(aun.fields.lib,          buffer(12,1))
 			data_subtree:add_le(aun.fields.fs_subfunc13, buffer(13,1))
--- 		TODO: print attributes correctly
+--			&01: Set load address, exec address, length and object attributes
+			if (fs_subfunc == 0x01) then
+				data_subtree:add_le(aun.fields.loadaddr,     buffer(14,4))
+				data_subtree:add_le(aun.fields.execaddr,     buffer(18,4))
+				data_subtree:add_le(aun.fields.length,       buffer(22,3))
+				data_subtree:add_le(aun.fields.attributes,   buffer(25,1))
+				return
+			end
+--			&02: Set load address
+			if (fs_subfunc == 0x02) then
+				data_subtree:add_le(aun.fields.loadaddr,     buffer(14,4))
+				return
+			end
+--			&03: Set exec address
+			if (fs_subfunc == 0x03) then
+				data_subtree:add_le(aun.fields.execaddr,     buffer(18,4))
+				return
+			end
+--			&04: Set object attributes
+			if (fs_subfunc == 0x04) then
+				data_subtree:add_le(aun.fields.attributes,   buffer(25,1))
+				return
+			end
+--			&05: Set creation date
+			if (fs_subfunc == 0x05) then
+				data_subtree:add_le(aun.fields.createdate,   buffer(14,2), get_date(buffer(14,2):le_int()))
+				return
+			end
+--			&40: Set update & creation date and time
+			if (fs_subfunc == 0x40) then
+				data_subtree:add_le(aun.fields.createdate,   buffer(14,2), get_date(buffer(14,2):le_int()))
+				data_subtree:add_le(aun.fields.createtime,   buffer(16,3), get_time(buffer(16,3):le_int()))
+				data_subtree:add_le(aun.fields.modifydate,   buffer(19,2), get_date(buffer(19,2):le_int()))
+				data_subtree:add_le(aun.fields.modifytime,   buffer(21,3), get_time(buffer(21,3):le_int()))
+				return
+			end
+--			&xx: Unknown
 			data_subtree:add_le(aun.fields.data,         buffer(14,size-14))
 			return
 		end
@@ -537,8 +602,8 @@ function aun.dissector(buffer, pinfo, tree)
 			data_subtree:add_le(aun.fields.urd,          buffer(10,1))
 			data_subtree:add_le(aun.fields.csd,          buffer(11,1))
 			data_subtree:add_le(aun.fields.lib,          buffer(12,1))
-			data_subtree:add(buffer(13,2), "Date: " .. get_date(date))
-			data_subtree:add(buffer(15,3), "Time: " .. get_time(time))
+			data_subtree:add_le(aun.fields.date,         buffer(13,2), get_date(buffer(13,2):le_int()))
+			data_subtree:add_le(aun.fields.time,         buffer(15,3), get_time(buffer(15,3):le_int()))
 			return
 		end
 --		&1E: Read user free space
@@ -584,6 +649,8 @@ function aun.dissector(buffer, pinfo, tree)
 
 --	Port &9C: Bridge
 	if port == 0x9C then
+		pinfo.cols.info:set(aun_ports[port] .. ": " .. aun_bridgetypes[ctrl])
+
 		data_subtree:add_le(aun.fields.bridgetype,   buffer(2,1))
 
 		if ctrl == 0x00 or ctrl == 0x01 or ctrl == 0x02 or ctrl == 0x03 then
@@ -599,6 +666,8 @@ function aun.dissector(buffer, pinfo, tree)
 
 --	Port &9E: PrinterServerEnquiryReply
 	if port == 0x9E then
+		pinfo.cols.info:set(aun_ports[port])
+
 		data_subtree:add_le(aun.fields.printerstatus,        buffer(8,1))
 		data_subtree:add_le(aun.fields.station,              buffer(9,1))
 		data_subtree:add_le(aun.fields.network,              buffer(10,1))
@@ -608,21 +677,31 @@ function aun.dissector(buffer, pinfo, tree)
 
 --	Port &D2: TCPIPOverEconet
 	if port == 0xD2 then
+		pinfo.cols.info:set(aun_ports[port] .. ": " .. aun_tcpiptypes[ctrl])
+
 		data_subtree:add_le(aun.fields.tcpiptype,            buffer(2,1))
 		data_subtree:add_le(aun.fields.data,                 buffer(8,size-8))
 		return
 	end
 --	Port &xx: Unknown port
 	data_subtree:add_le(aun.fields.data,         buffer(8,size-8))
+	pinfo.cols.info:set(aun_ports[port])
 end
 
 function get_date(value)
--- TODO: date translation
-	return string.format("%i/%i/%i;", value(0,1), value(1,1), value(1,1))
+	local d_year  = 1980 + bit.rshift(bit.band(value, 0x00F0), 4)
+	local d_month = bit.band(value, 0x000F)
+	local d_day   = bit.rshift(bit.band(value, 0xFF00), 8)
+
+	return os.date("%d %b %Y", os.time{year=d_year, month=d_month, day=d_day})
 end
 
 function get_time(value)
-	return string.format("%i:%i:%i", value(0,1), value(1,1), value(2,1))
+	local hour   = value(0,1)
+	local minute = value(1,1)
+	local second = value(2,1)
+
+	return string.format("%i:%i:%i", hour, minute, second)
 end
 
 
