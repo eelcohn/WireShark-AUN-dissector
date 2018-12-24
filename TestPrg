@@ -1,0 +1,53 @@
+10 REM >List9/7
+20 REM FileTest
+30 REM by Nicholas van Someren
+40 REM Archimedes OS: A Dabhand Guide
+50 REM (c) Copyright AvS and NvS 1988
+60 :
+70 DIM text% 1000
+80 endtext%=text%
+90 PRINT "Please enter some lines of text, pressing Return"
+100 PRINT "after each. Press Return by itself to end."
+110 INPUT LINE a$
+120 WHILE (endtext%+LEN(a$)<text%+1000) AND a$<>""
+130 $endtext%=a$
+140 endtext%+=LEN(a$)+1
+150 INPUT LINE a$
+160 END WHILE 
+170 PRINT"Thank you - saving text..."
+180 SYS "OS_File",0,"TextFile",0, 0,text%, endtext%
+190 *INFO TextFile
+200 PRINT"Change all the file information:"
+210 SYS "OS_File",1,"TextFile",&FFFFFE12,&3456789A,,8
+220 *INFO TextFile
+230 PRINT"Change the load address:"
+240 SYS "OS_File",2,"TextFile",0
+250 *INFO  TextFile
+260 PRINT"Change the execution address:"
+270 SYS "OS_File",3,"TextFile",,&87654321
+280 *INFO TextFile
+290 PRINT"Change the attributes:"
+300 SYS "OS_File",4,"TextFile",,,,3
+310 *INFO TextFile
+320 PRINT"Open the file - ";
+330 SYS "OS_Find",192,"TextFile"  TO  filehandle%
+340 PRINT"the file handle is ";filehandle%
+350 PRINT"Read in a byte - ";
+360 SYS "OS_BGet",,filehandle% TO gotbyte%
+370 PRINT"the byte was ";gotbyte%
+380 PRINT"Read the extent of the file - ";
+390 SYS "OS_Args",2,filehandle% TO ,,fileextent%
+400 PRINT"the extent is ";fileextent%
+410 PRINT"Set the pointer to the end of the file:"
+420 SYS "OS_Args",1,filehandle%,fileextent%
+430 PRINT"Write back  the byte  we read on to the end:"
+440 SYS "OS_BPut",gotbyte%,filehandle%
+450 PRINT"Read the middle third of the file:"
+460 SYS "OS_GBPB",3,filehandle%,text%,fileextent% DIV 3,fileextent% DIV TO,,endtext%
+470 PRINT"Save the middle third back onto the end:"
+480 SYS "OS_GBPB",1,filehandle%,text%,endtext%-text%,fileextent%+1
+490 PRINT"Force the file to be updated with:"
+500 SYS "OS_Args",&FF,filehandle%
+510 PRINT"Close the file and examine the result:"
+520 SYS "OS_Find",0,filehandle%
+530 *TYPE TextFile
