@@ -1,5 +1,5 @@
 # WireShark-AUN-dissector
-AUN (Acorn Universal Networking) dissector for WireShark
+AUN (Acorn Universal Networking) dissector for [WireShark](https://www.wireshark.org/)
 
 #### How to use this script:
 To use this LUA-script, drop the `wireshark-lua-dissector.lua` script in the plugins folder of Wireshark's configuration folder.
