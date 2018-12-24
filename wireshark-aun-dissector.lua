@@ -261,14 +261,15 @@ aun.fields.station       = ProtoField.uint8 ("aun.station",       "Station",    
 aun.fields.network       = ProtoField.uint8 ("aun.network",       "Network",                    base.HEX)
 aun.fields.data          = ProtoField.bytes ("aun.data",          "Data",                       base.SPACE)
 
---aun.fields.attrib_r_owner = ProtoField.bool  ("aun.r_owner",       "Read access by owner",       base.HEX, {"1", "0"}, 0x01)
---aun.fields.attrib_w_owner = ProtoField.bool  ("aun.w_owner",       "Write access by owner",      base.HEX, {"1", "0"}, 0x02)
---aun.fields.attrib_x_owner = ProtoField.bool  ("aun.x_owner",       "Execute by owner",           base.HEX, {"1", "0"}, 0x04)
---aun.fields.attrib_l_owner = ProtoField.bool  ("aun.l_owner",       "Locked for owner",           base.HEX, {"1", "0"}, 0x08)
---aun.fields.attrib_r_other = ProtoField.bool  ("aun.r_other",       "Read access by others",      base.HEX, {"1", "0"}, 0x10)
---aun.fields.attrib_w_other = ProtoField.bool  ("aun.w_other",       "Write access by others",     base.HEX, {"1", "0"}, 0x20)
---aun.fields.attrib_x_other = ProtoField.bool  ("aun.x_other",       "Execute by others",          base.HEX, {"1", "0"}, 0x40)
---aun.fields.attrib_l_other = ProtoField.bool  ("aun.l_other",       "Locked for others",          base.HEX, {"1", "0"}, 0x80)
+aun.fields.attr_r_owner  = ProtoField.uint8 ("aun.r_owner",       "R - Read access by owner",       base.HEX, {"Set", "Not set"}, 0x01)
+aun.fields.attr_w_owner  = ProtoField.uint8 ("aun.w_owner",       "W - Write access by owner",      base.HEX, {"Set", "Not set"}, 0x02)
+aun.fields.attr_x_owner  = ProtoField.uint8 ("aun.x_owner",       "E - Execute by owner",           base.HEX, {"Set", "Not set"}, 0x04)
+aun.fields.attr_l_owner  = ProtoField.uint8 ("aun.l_owner",       "L - Locked for owner",           base.HEX, {"Set", "Not set"}, 0x08)
+aun.fields.attr_r_other  = ProtoField.uint8 ("aun.r_other",       "r - Read access by others",      base.HEX, {"Set", "Not set"}, 0x10)
+aun.fields.attr_w_other  = ProtoField.uint8 ("aun.w_other",       "w - Write access by others",     base.HEX, {"Set", "Not set"}, 0x20)
+aun.fields.attr_x_other  = ProtoField.uint8 ("aun.x_other",       "e - Execute by others",          base.HEX, {"Set", "Not set"}, 0x40)
+aun.fields.attr_l_other  = ProtoField.uint8 ("aun.l_other",       "l - Locked for others",          base.HEX, {"Set", "Not set"}, 0x80)
+
 
 
 function aun.dissector(buffer, pinfo, tree)
@@ -279,7 +280,7 @@ function aun.dissector(buffer, pinfo, tree)
 	local port = buffer(1,1):le_uint()
 	local ctrl = buffer(2,1):le_uint()
 
-	local subtree = tree:add(aun, buffer(), string.format(aun.description .. " (%d bytes)", size))
+	subtree = tree:add(aun, buffer(), string.format(aun.description .. " (%d bytes)", size))
 
 	if size < 8 then
 		subtree:add(buffer(0, size), "Malformed data: " .. buffer(0, size))
@@ -287,7 +288,7 @@ function aun.dissector(buffer, pinfo, tree)
 	end
 
 --	local header_subtree = subtree:add(buffer(0,8),"Header (8 bytes)")
-	local header_subtree = subtree
+	header_subtree = subtree
 	header_subtree:add_le(aun.fields.packettype, buffer(0,1))
 	header_subtree:add_le(aun.fields.port,       buffer(1,1))
 	header_subtree:add_le(aun.fields.control,    buffer(2,1))
@@ -494,10 +495,20 @@ function aun.dissector(buffer, pinfo, tree)
 			data_subtree:add_le(aun.fields.fs_subfunc13, buffer(13,1))
 --			&01: Set load address, exec address, length and object attributes
 			if (fs_subfunc == 0x01) then
+				local attribute = buffer(25,1):le_uint()
 				data_subtree:add_le(aun.fields.loadaddr,     buffer(14,4))
 				data_subtree:add_le(aun.fields.execaddr,     buffer(18,4))
 				data_subtree:add_le(aun.fields.length,       buffer(22,3))
 				data_subtree:add_le(aun.fields.attributes,   buffer(25,1))
+				local attrib_subtree = subtree:add(buffer(0,8),"Attributes: " .. expand_attributes(port))
+				attrib_subtree:add_le(aun.fields.attr_r_owner, port)
+				attrib_subtree:add_le(aun.fields.attr_w_owner, port)
+				attrib_subtree:add_le(aun.fields.attr_x_owner, port)
+				attrib_subtree:add_le(aun.fields.attr_l_owner, port)
+				attrib_subtree:add_le(aun.fields.attr_r_other, port)
+				attrib_subtree:add_le(aun.fields.attr_w_other, port)
+				attrib_subtree:add_le(aun.fields.attr_x_other, port)
+				attrib_subtree:add_le(aun.fields.attr_l_other, port)
 				return
 			end
 --			&02: Set load address
@@ -512,7 +523,16 @@ function aun.dissector(buffer, pinfo, tree)
 			end
 --			&04: Set object attributes
 			if (fs_subfunc == 0x04) then
-				data_subtree:add_le(aun.fields.attributes,   buffer(25,1))
+				local attribute = buffer(14,1):le_uint()
+				local attrib_subtree = subtree:add(buffer(14,1),"Attributes: " .. expand_attributes(port))
+				attrib_subtree:add_le(aun.fields.attr_r_owner, port)
+				attrib_subtree:add_le(aun.fields.attr_w_owner, port)
+				attrib_subtree:add_le(aun.fields.attr_x_owner, port)
+				attrib_subtree:add_le(aun.fields.attr_l_owner, port)
+				attrib_subtree:add_le(aun.fields.attr_r_other, port)
+				attrib_subtree:add_le(aun.fields.attr_w_other, port)
+				attrib_subtree:add_le(aun.fields.attr_x_other, port)
+				attrib_subtree:add_le(aun.fields.attr_l_other, port)
 				return
 			end
 --			&05: Set creation date
@@ -702,6 +722,37 @@ function get_time(value)
 	local second = value(2,1)
 
 	return string.format("%i:%i:%i", hour, minute, second)
+end
+
+function expand_attributes(attribute)
+	local attrib_string = ""
+
+	if (bit.band(attribute, 0x01)) then
+		attrib_string = attrib_string .. "R"
+	end
+	if (bit.band(attribute, 0x02)) then
+		attrib_string = attrib_string .. "W"
+	end
+	if (bit.band(attribute, 0x04)) then
+		attrib_string = attrib_string .. "X"
+	end
+	if (bit.band(attribute, 0x08)) then
+		attrib_string = attrib_string .. "L"
+	end
+	if (bit.band(attribute, 0x10)) then
+		attrib_string = attrib_string .. "r"
+	end
+	if (bit.band(attribute, 0x20)) then
+		attrib_string = attrib_string .. "w"
+	end
+	if (bit.band(attribute, 0x40)) then
+		attrib_string = attrib_string .. "x"
+	end
+	if (bit.band(attribute, 0x80)) then
+		attrib_string = attrib_string .. "l"
+	end
+
+	return attrib_string
 end
 
 
