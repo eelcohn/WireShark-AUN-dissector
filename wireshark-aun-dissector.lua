@@ -50,7 +50,7 @@ aun_ports = {
 	[0xDC] = "DataDistributionControl"
 }
 
-aun_immediate_functions = {
+aun_im_functions = {
 	[0x00] = "Execute command (OSCLI)",
 	[0x01] = "Peek",
 	[0x02] = "Poke",
@@ -208,7 +208,7 @@ aun.fields.port          = ProtoField.uint8 ("aun.port",          "Port",       
 aun.fields.control       = ProtoField.uint8 ("aun.control",       "Control byte",               base.HEX)
 aun.fields.retrans       = ProtoField.uint8 ("aun.retrans",       "Retransmission flag",        base.HEX)
 aun.fields.sequence      = ProtoField.uint32("aun.sequence",      "Sequence ID",                base.HEX)
-aun.fields.im_function   = ProtoField.uint8 ("aun.im_function",   "Function",                   base.HEX, aun_immediate_functions)
+aun.fields.im_function   = ProtoField.uint8 ("aun.im_function",   "Function",                   base.HEX, aun_im_functions)
 aun.fields.fs_function   = ProtoField.uint8 ("aun.fs_function",   "Function",                   base.HEX, aun_fs_functions)
 aun.fields.fs_subfunc03  = ProtoField.uint8 ("aun.fs_subfunc03",  "Sub-function",               base.HEX, aun_fs03_functions)
 aun.fields.fs_subfunc0c  = ProtoField.uint8 ("aun.fs_subfunc0c",  "Type",                       base.HEX, aun_fs0c_functions)
