@@ -1,7 +1,7 @@
 -------------------------------------------------------------------------------
 -- wireshark-aun-dissector.lua
 -- Acorn Universal Networking protocol dissector for WireShark
--- (c) Eelco Huininga 2018
+-- (c) Eelco Huininga 2018-2019
 -------------------------------------------------------------------------------
 
 aun_types = {
@@ -128,13 +128,13 @@ aun_fs03_functions = {
 
 aun_fs0c_functions = {
 	[0x00] = "Seqeuential file pointer",
-	[0x01] = "File exent",
+	[0x01] = "File extent",
 	[0x02] = "File size"
 }
 
 aun_fs0d_functions = {
 	[0x00] = "Seqeuential file pointer",
-	[0x01] = "File exent"
+	[0x01] = "File extent"
 }
 
 aun_fs12_functions = {
